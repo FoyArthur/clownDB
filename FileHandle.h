@@ -17,12 +17,13 @@ class FileHandle {
 		int close();
 		int read(unsigned int pageNum, void *data);
 		int write(unsigned int pageNum, void *data);
+		int append(void *data);
+		int getPages(unsigned int *pages);
 
 	private:
 		FILE *fd = NULL;
 		std::string fileName;
 
-		int getPages(unsigned int *pages);
 };
 
 

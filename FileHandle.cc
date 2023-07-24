@@ -19,8 +19,10 @@ int FileHandle::getPages(unsigned int *pages) {
 	struct stat buf;
 	int rc = stat(fileName.c_str(), &buf);
 	if(rc) return 1;
-	
-	return buf.st_size / PAGE_SIZE;
+
+	*pages = buf.st_size / PAGE_SIZE;
+
+	return 0;
 }
 
 int FileHandle::open(const std::string filePath) {
@@ -62,8 +64,36 @@ int FileHandle::read(unsigned int pageNum, void *data) {
 	int rc = getPages(&pages);
 	if(rc) return 1;
 	if(pageNum >= pages) return 1;
+
+	//seek to beginning of page and read PAGE_SIZE bytes.
 	rc = fseek(fd, pageNum * PAGE_SIZE, SEEK_SET);
 	fread(data, 1, PAGE_SIZE, fd);
+	return 0;
+}
+
+int FileHandle::write(unsigned int pageNum, void *data) {
+	//No file open
+	if(fd == NULL) return 1;
+
+	unsigned int pages;
+	int rc = getPages(&pages);
+	if(rc) return 1;
+	if(pageNum >= pages) return 1;
+
+	//seek to beginning of page and write PAGE_SIZE bytes.
+	rc = fseek(fd, pageNum * PAGE_SIZE, SEEK_SET);
+	fwrite(data, 1, PAGE_SIZE, fd);
+	return 0;
+}
+
+int FileHandle::append(void *data) {
+	if(fd == NULL) return 1;
+	unsigned int pages;
+	int rc = getPages(&pages);
+	if(rc) return 1;
+	
+	rc = fseek(fd, pages * PAGE_SIZE, SEEK_SET);
+	fwrite(data, 1, PAGE_SIZE, fd);
 	return 0;
 }
 
