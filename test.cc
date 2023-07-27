@@ -2,6 +2,7 @@
 #include "Unordered.h"
 #include "FileHandle.h"
 
+#include <vector>
 #include <cassert>
 #include <iostream>
 
@@ -106,6 +107,8 @@ void FileHandleTests() {
 	free(readData);
 	free(data2);
 	free(data);
+	rc = fh.close();
+	assert(rc == 0);
 }
 
 /* Clown DB Tests
@@ -152,9 +155,42 @@ void UnorderedTests() {
 	rc = u.Open("clown.db2");
 	assert(rc == 0);
 
+	std::string test = "test";
 	std::string s = "hello_world";
-	rc = u.Put("test", s);
+	rc = u.Put(test, s);
 	assert(rc == 0);	
+
+	std::string g;
+	rc = u.Get(test, &g);
+	assert(rc == 0 && g == s);
+
+	s = "goodbye";
+
+	rc = u.Put(test, s);
+	assert(rc == 0);
+
+	rc = u.Get(test, &g);
+	assert(rc == 0 && g == s);
+
+	//Lots of Inserts 
+	std::vector<std::string> strings;
+	std::string insert = "a";
+	for(int i = 0; i < 100; i++) {
+		strings.push_back(insert);
+		rc = u.Put(insert, insert);
+		assert(rc == 0);
+		insert += "a";
+		//std::cout << "size " << insert.size() << std::endl;
+	}
+
+	for(int i = 0; i < 100; i++) {
+		std::string get;
+		rc = u.Get(strings[i], &get);
+		assert(rc == 0 && get == strings[i]);
+	}
+
+	rc = u.Close();
+	assert(rc == 0);
 }
 
 int main() {

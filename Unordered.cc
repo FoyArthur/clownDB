@@ -4,6 +4,10 @@ Unordered::Unordered() {
 	fh = new FileHandle();
 }
 
+Unordered::~Unordered() {
+	delete fh;
+}
+
 int Unordered::Open(std::string filePath) {
 	int rc = fh->open(filePath);
 	if(rc == 1) {
@@ -13,8 +17,17 @@ int Unordered::Open(std::string filePath) {
 	return checkValidFile();
 }
 
-int Unordered::Get(std::string key) {
-	return 1;
+int Unordered::Close() {
+	int rc = fh->close();
+	return rc;
+}
+
+int Unordered::Get(std::string key, std::string *value) {
+	unsigned int numPages;
+	int rc = fh->getPages(&numPages);
+	if(rc) return rc;
+	rc = searchAndDelete(key, numPages, value, NO_DELETE);
+	return 0;
 }
 
 // 8 bytes for length of key and length of value
@@ -56,7 +69,6 @@ void *Unordered::insert(std::string key, std::string value) {
 int Unordered::insertAtEnd(std::string key, std::string value, int numPages) {
 	void *data = malloc(PAGE_SIZE);
 	int rc = fh->read(numPages-1, data);
-	std::cout << "First rc " << rc << std::endl;
 	if(rc) {
 		free(data);
 		return rc;
@@ -92,15 +104,83 @@ int Unordered::insertNewPage(std::string key, std::string value) {
 	return rc;
 }
 
+//Searches all pages for key and deletes it if it exists
+int Unordered::searchAndDelete(std::string key, int numPages, std::string *value, int del) {
+	void *data = malloc(PAGE_SIZE);
+
+	for(int i = 0; i < numPages; i++) {
+		int rc = fh->read(i, data);
+		if(rc) {
+			free(data);
+			return rc;
+		}
+
+		int offset;
+		memcpy(&offset, data, sizeof(int));
+		int current = 4;
+
+		// Iterate through page, if key matches, delete key value pair
+		while(current < offset) {
+			int pairStart = current;
+			int keySize;
+			memcpy(&keySize, (char *) data + current, sizeof(int));
+			current += sizeof(int);
+			char *keyData = (char *) calloc(1, keySize+1);
+			memcpy(keyData, (char *) data + current, keySize);
+			std::string keyString(keyData);
+			current += keySize;
+			free(keyData);
+
+			int valueSize;
+			memcpy(&valueSize, (char *) data + current, sizeof(int));
+			current += sizeof(int);
+
+			char *valueData = (char *) calloc(1, valueSize+1);
+			memcpy(valueData, (char *) data + current, valueSize);
+			current += valueSize;
+
+			//std::cout << keySize << " " << valueSize << std::endl;
+
+			if(key == keyString) {
+				//go to end of key, value pair and shift left overwriting it and deleting it
+				if(del == DELETE) {
+					int pairSize = keySize + valueSize + sizeof(int) * 2;
+					memmove((char *) data + pairStart, (char *) data + current, offset-current);
+					offset -= pairSize;
+					memcpy(data, &offset, sizeof(int));
+					fh->write(i, data);
+				} else {
+					*value = valueData;
+				}
+
+				free(valueData);
+				free(data);
+				return 0;
+			}
+
+			free(valueData);
+		}
+	}
+	free(data);
+
+	return 0;
+}
+
 int Unordered::Put(std::string key, std::string value) {
 	//Read in last page. Check if enough space
 	// If enough space, append key value pair, else add new page.
+
+	//Search pages for existing key
+	//If exists delete it.
 	unsigned int numPages;
 	int rc = fh->getPages(&numPages);
 	if(rc) return 1;
+	
+	std::string valueReturn;
+	rc = searchAndDelete(key, numPages, &valueReturn, DELETE);
+	if(rc) return 1;
 
 	int enough = enoughSpace(key, value, numPages);
-	std::cout << "Enough " << enough << std::endl;
 
 	if(enough) {
 		return insertAtEnd(key, value, numPages);
@@ -111,11 +191,6 @@ int Unordered::Put(std::string key, std::string value) {
 
 int Unordered::Delete(std::string key) {
 	return 0;
-}
-
-int Unordered::Close() {
-	int rc = fh->close();
-	return rc;
 }
 
 void *Unordered::createNewPage() {

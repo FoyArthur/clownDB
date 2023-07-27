@@ -26,7 +26,7 @@ class ClownDB {
 	public:
 		ClownDB();
 		~ClownDB();
-		virtual int Get(std::string key)=0;
+		virtual int Get(std::string key, std::string *value)=0;
 		virtual int Put(std::string, std::string)=0;
 		virtual int Delete(std::string key)=0;
 		virtual int Open(const std::string filePath)=0;
