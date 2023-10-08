@@ -1,6 +1,8 @@
 #include "ClownDB.h"
 #include "Unordered.h"
 #include "FileHandle.h"
+//#include "Sorted.h"
+#include "BTree.h"
 
 #include <vector>
 #include <cassert>
@@ -189,13 +191,75 @@ void UnorderedTests() {
 		assert(rc == 0 && get == strings[i]);
 	}
 
+	//Delete all but one of the keys
+	for(int i = 0; i < 99; i++) {
+		std::string get;
+		rc = u.Delete(strings[i]);
+		assert(rc == 0);
+		rc = u.Get(strings[i], &get);
+		assert(rc == 0 && get == "");
+	}
+	std::string get;
+	rc = u.Get(strings[99], &get);
+	assert(get == strings[99] && rc == 0);
+
 	rc = u.Close();
 	assert(rc == 0);
+}
+
+/*
+void SortedTests() {
+	Sorted s;
+	int rc = s.Open("clown.db3");
+	assert(rc == 0);
+	rc = s.Close();
+	assert(rc == 0);
+	rc = s.Open("clown.db3");
+	assert(rc == 0);
+}
+
+*/
+
+
+/*
+Tests:
+	- Open New File
+	
+*/
+
+void BTreeTests() {
+	BTree b;
+	int rc = b.Open("clown.db4");
+	assert(rc == 0);
+
+	std::string test = "test";
+	std::string s = "hello_world";
+	rc = b.Put(test, s);
+	assert(rc == 0);	
+
+	std::string g;
+	rc = b.Get(test, &g);
+	assert(rc == 0 && g == s);
+
+	std::cout << "HEREE" << std::endl;
+	s = "goodbye";
+
+	rc = b.Put(test, s);
+	assert(rc == 0);
+
+	rc = b.Get(test, &g);
+	assert(rc == 0 && g == s);
+
+
+
+	rc = b.Close();
+	assert(rc ==0);
 }
 
 int main() {
 	FileHandleTests();
 	UnorderedTests();
 	//ClownDBTests();
+	BTreeTests();
 	std::cout << "Tests Passed" << std::endl;
 }

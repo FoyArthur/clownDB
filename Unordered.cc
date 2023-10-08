@@ -30,6 +30,39 @@ int Unordered::Get(std::string key, std::string *value) {
 	return 0;
 }
 
+int Unordered::Put(std::string key, std::string value) {
+	//Read in last page. Check if enough space
+	// If enough space, append key value pair, else add new page.
+
+	//Search pages for existing key
+	//If exists delete it.
+	unsigned int numPages;
+	int rc = fh->getPages(&numPages);
+	if(rc) return 1;
+	
+	std::string valueReturn;
+	rc = searchAndDelete(key, numPages, &valueReturn, DELETE);
+	if(rc) return 1;
+
+	int enough = enoughSpace(key, value, numPages);
+
+	if(enough) {
+		return insertAtEnd(key, value, numPages);
+	} else {
+		return insertNewPage(key, value);
+	}
+}
+
+int Unordered::Delete(std::string key) {
+	unsigned int numPages;
+	int rc = fh->getPages(&numPages);
+	if(rc) return 1;
+	
+	std::string valueReturn;
+	rc = searchAndDelete(key, numPages, &valueReturn, DELETE);
+	return rc;
+}
+
 // 8 bytes for length of key and length of value
 int Unordered::enoughSpace(std::string key, std::string value, int numPages) {
 	char *data = (char *) malloc (PAGE_SIZE);
@@ -163,33 +196,6 @@ int Unordered::searchAndDelete(std::string key, int numPages, std::string *value
 	}
 	free(data);
 
-	return 0;
-}
-
-int Unordered::Put(std::string key, std::string value) {
-	//Read in last page. Check if enough space
-	// If enough space, append key value pair, else add new page.
-
-	//Search pages for existing key
-	//If exists delete it.
-	unsigned int numPages;
-	int rc = fh->getPages(&numPages);
-	if(rc) return 1;
-	
-	std::string valueReturn;
-	rc = searchAndDelete(key, numPages, &valueReturn, DELETE);
-	if(rc) return 1;
-
-	int enough = enoughSpace(key, value, numPages);
-
-	if(enough) {
-		return insertAtEnd(key, value, numPages);
-	} else {
-		return insertNewPage(key, value);
-	}
-}
-
-int Unordered::Delete(std::string key) {
 	return 0;
 }
 

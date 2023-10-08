@@ -31,14 +31,17 @@ class ClownDB {
 		virtual int Delete(std::string key)=0;
 		virtual int Open(const std::string filePath)=0;
 		virtual int Close()=0;
+
 	private:
 		FileHandle *fh;
 
+		/*
 		int insert(const std::string &key, const std::string &value, Metadata &m);
 		int createNewFile(std::string filePath);
 		int checkValidFile();
 		int firstInsert(Metadata &m);
 		int createNonLeafPage(void *data);
+		*/
 };
 
 #endif

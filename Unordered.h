@@ -1,3 +1,6 @@
+#ifndef unordered_h
+#define unordered_h
+
 #include "ClownDB.h"
 
 #define DELETE 0
@@ -7,11 +10,11 @@ class Unordered: public ClownDB {
 	public:
 		Unordered();
 		~Unordered();
-		int Get(std::string key, std::string *value);
-		int Put(std::string key, std::string value);
-		int Delete(std::string key);
-		int Open(const std::string filePath);
-		int Close();
+		int Get(std::string key, std::string *value) override;
+		int Put(std::string key, std::string value) override;
+		int Delete(std::string key) override;
+		int Open(const std::string filePath) override;
+		int Close() override;
 	private:
 		FileHandle *fh;
 
@@ -26,3 +29,4 @@ class Unordered: public ClownDB {
 		void *insert(std::string key, std::string value);
 
 };
+#endif
