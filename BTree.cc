@@ -4,11 +4,13 @@
 
 BTree::BTree() {
 	fh = new FileHandle();
-}
+} 
 
 BTree::~BTree() {
 	delete fh;
 }
+
+//TODO: Make sure left and right linked list of leaf are correct
 
 int BTree::Open(const std::string filePath) {
 	int rc = fh->open(filePath);
@@ -153,19 +155,100 @@ int BTree::insert(const std::string &key, const std::string &value, Metadata &m)
 		return firstInsert(key, value, m);
 	}
 
-	return recursiveInsert(key, value, m.rootPage, *returned, &returnedPageNum)
+	std::string returnedKey;
+	int returnedPageNum;
+
+	return recursiveInsert(key, value, m.rootPage, &returnedKey, &returnedPageNum);
 }
 
-int BTree::recursiveInsert(std::string key, std::string *value, int pageNum, std::string *returnedKey, int *returnedPageNum) {
+int BTree::recursiveInsert(const std::string key, const std::string &value, int pageNum, std::string *returnedKey, int *returnedPageNum) {
 	void *data = malloc(PAGE_SIZE);
 	int rc = fh->read(pageNum, data);
+	if(rc) {
+		free(data);
+		return 1;
+	}
+
 	LeafMetaData l;
 	memcpy(&l, data, sizeof(LeafMetaData));
 	if(l.pageType == NONLEAF) {
+		int page = 0;
+		rc = findPage(key, value, pageNum, &page);
+		if(rc) return rc;
+		rc = recursiveInsert(key, value, page, returnedKey, returnedPageNum);
+		if(rc) return rc;
+		if(returnedKey != "") {
+			rc = fh->read(0, zeroPage);
+			rc = spaceOnNonLeaf(key, value, page);
+
+			insert(
+		}
 
 	} else {
-		
+		rc = insertAtLeaf(key, value, pageNum, returnedKey, returnedPageNum);
+		return rc;
 	}
+	return 1;
+}
+
+int BTree::spaceOnNonLeaf(const std::string key, const std::string &value, int pageNum, int *space) {
+	char *data = (char *) malloc(PAGE_SIZE);
+	int rc = fh->read(pageNum, data);
+	if(rc) {
+		free(data);
+		return rc;
+	}
+	
+	LeafMetaData l;
+	memcpy(&l, data, sizeof(LeafMetaData));
+
+	int keySize = key.size() + sizeof(int);
+	if(l.freeSpaceOffset + keySize > PAGE_SIZE) {
+		*space = 0;
+	} else {
+		int offset = sizeof(LeafMetaData);
+		*space = 1;
+		int first = 1;
+		int prevPage;
+		while(offset < l.freeSpaceOffset) {
+			if(first) {
+				memcpy(&prevPage, 
+			}
+		}
+	}
+}
+
+int BTree::findPage(const std::string key, const std::string &value, int pageNum, int *page) {
+	char *data = (char *) malloc(PAGE_SIZE);
+	int rc = fh->read(pageNum, data);
+	if(rc) {
+		free(data);
+		return rc;
+	}
+
+	LeafMetaData l;
+	memcpy(&l, data, sizeof(LeafMetaData));
+
+	int offset = sizeof(LeafMetaData); 
+	int first = 1;
+	while(offset < l.freeSpaceOffset) {
+		if(first) {
+			memcpy(page, data+offset, sizeof(int));
+			offset += 4;
+			first = 0;
+		}
+		int keySize;
+		memcpy(&keySize, data+offset, sizeof(int));
+		std::string keyCompare(data+offset, keySize);
+		if(key < keyCompare) {
+			break;
+		}
+		offset += keySize;
+		memcpy(page, data+offset, sizeof(int));
+		offset += sizeof(int);
+	}
+	free(data);
+	return 0;
 }
 
 int BTree::createNonLeafPage(void *data) {
@@ -198,10 +281,8 @@ int BTree::insertAtLeaf(const std::string &key, const std::string &value, int pa
 
 	LeafMetaData l;
 	memcpy(&l, data, sizeof(LeafMetaData));
-	int offset = sizeOf(LeafMetaData);
+	int offset = sizeof(LeafMetaData);
 	int freeSpaceOffset = l.freeSpaceOffset;
-	int keySize = key.size();
-	int valueSize = value.size();
 
 	int insert = freeSpaceOffset;
 
@@ -226,23 +307,125 @@ int BTree::insertAtLeaf(const std::string &key, const std::string &value, int pa
 	
 	if(enoughSpace) {
 		//regular insert and shift
-		rc = 
+		rc = insertAndShift(key, value, data, insert);
+		if(rc) {
+			free(data);
+			return rc;
+		}
+		*returnedKey = "";
+		rc = fh->write(pageNum, data);
+		free(data);
 	} else {
 		//split
 	}
 
-	rc = fh->write(pageNum, data);
+	return rc;
+
+	return 0;
+}
+
+int BTree::insertSplit(const std::string key, const std::string value, int pageNum, int insertOffset, std::string *returnedKey, int *returnedPage) {
+	char *data = (char *) malloc(PAGE_SIZE);
+	int rc = fh->read(pageNum, data);
 	if(rc) {
 		free(data);
-		return 1;
+		return rc;
+	}
+
+	LeafMetaData l;
+	memcpy(&l, data, sizeof(l));
+	int freeSpaceOffset = l.freeSpaceOffset;
+
+	//May need to change this in the future
+	//Assuming key and value is less thatn PAGE_SIZE/2
+
+	//int newEntrySize = key.size() + value.size() + sizeof(int) * 2;
+
+	char *newPage = (char *) malloc(PAGE_SIZE);
+	
+	rc = createLeafPage(newPage);
+
+
+	if(insertOffset >= PAGE_SIZE/2) {
+		int offset = sizeof(LeafMetaData);
+		int last = offset;
+		for(int i =	offset; i < PAGE_SIZE/2;) {
+			int keySize, valueSize;
+			memcpy(&keySize, data + offset, sizeof(int));
+			offset += sizeof(int) + keySize;
+			memcpy(&valueSize, data + offset, sizeof(int));
+			offset += sizeof(int) + valueSize;
+			if(offset <= PAGE_SIZE/2) {
+				last = offset;
+			}
+		}
+		//insert onto new page
+		memmove(newPage+sizeof(LeafMetaData), data+last, freeSpaceOffset - last);
+		l.freeSpaceOffset -= (freeSpaceOffset-last);
+		rc = fh->write(pageNum, data);
+		if(rc) {
+			free(newPage);
+			free(data);
+			return rc;
+		}
+		memcpy(&l, newPage, sizeof(LeafMetaData));
+		l.freeSpaceOffset += freeSpaceOffset - last;
+		rc = fh->append(newPage);
+		if(rc) {
+			free(data);
+			free(newPage);
+			return rc;
+		}
+		//insert on new page;
+		unsigned int newPageNum;
+		fh->getPages(&newPageNum);
+		rc = insertAtLeaf(key, value, newPageNum-1, returnedKey, returnedPage);
+		*returnedPage = newPageNum;
+
+		int returnedKeySize;
+		memcpy(&returnedKeySize, newPage + sizeof(LeafMetaData), sizeof(int));
+		offset = sizeof(LeafMetaData) + sizeof(int);
+		std::string ret(newPage+offset, returnedKeySize);
+		*returnedKey = ret;
+
+		free(data);
+		free(newPage);
+	} else {
+		memcpy(newPage+sizeof(LeafMetaData), data + insertOffset, freeSpaceOffset - insertOffset);
+		LeafMetaData ls;
+		memcpy(&ls, newPage, sizeof(LeafMetaData));
+		ls.freeSpaceOffset += freeSpaceOffset - insertOffset;
+		rc = fh->append(newPage);
+		if(rc) {
+			free(data);
+			free(newPage);
+			return rc;
+		}
+		unsigned int newPageNum;
+		fh->getPages(&newPageNum);
+		
+		*returnedPage = newPageNum;
+
+		int returnedKeySize;
+		memcpy(&returnedKeySize, newPage+sizeof(LeafMetaData), sizeof(int));
+
+		std::string ret(newPage+sizeof(LeafMetaData)+sizeof(int), returnedKeySize);
+		*returnedKey = ret;
+
+		l.freeSpaceOffset -= freeSpaceOffset-insertOffset;
+		fh->write(pageNum, data);
+		free(data);
+		free(newPage);
 	}
 	return 0;
 }
 
+
 int BTree::insertAndShift(const std::string key, const std::string value, char *data, int insertOffset) {
 	LeafMetaData l;
 	memcpy(&l, data, sizeof(LeafMetaData));
-	int newEntrySize = key.size() + value.size() + sizeof(int);
+	int newEntrySize = key.size() + value.size() + sizeof(int) * 2;
+	int offset = l.freeSpaceOffset;
 	l.freeSpaceOffset += newEntrySize;
 	memcpy(data, &l, sizeof(LeafMetaData));
 
@@ -332,7 +515,9 @@ int BTree::firstInsert(const std::string &key, const std::string &value, Metadat
 	unsigned int rightLeafPage;
 	fh->getPages(&rightLeafPage);
 	rightLeafPage--;
-	rc = insertAtLeaf(key, value, rightLeafPage);
+	std::string s;
+	int num;
+	rc = insertAtLeaf(key, value, rightLeafPage, &s, &num);
 	if(rc) return 1;
 
 	rc = updateRoot(key, rootPageNum, rightLeafPage-1, rightLeafPage);

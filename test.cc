@@ -239,6 +239,7 @@ void BTreeTests() {
 
 	std::string g;
 	rc = b.Get(test, &g);
+	std::cout << rc << "  " << g << std::endl;
 	assert(rc == 0 && g == s);
 
 	std::cout << "HEREE" << std::endl;

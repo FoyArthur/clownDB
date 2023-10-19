@@ -39,11 +39,13 @@ class BTree: public ClownDB {
 		int createNewFile(std::string filePath);
 		int checkValidFile();
 		int insert(const std::string &key, const std::string &value, Metadata &m);
-		int insertAtLeaf(const std::string &key, const std::string &value, int pageNum);
+		int insertAtLeaf(const std::string &key, const std::string &value, int pageNum, std::string *returnedKey, int *returnedPageNum);
 		int updateRoot(const std::string &key, int rootPageNum, int leftLeaf, int rightLeaf);
 		int getFromPage(std::string key, std::string *value, int pageNum);
 		int findInLeaf(std::string key, std::string *value, char *data);
 		int getNextPage(std::string key, char *data, int *nextPage);
-		int recursiveInsert(std::string key, std::string *value, int pageNum, std::string *returnedKey, int *returnedPageNum);
+		int recursiveInsert(const std::string key, const std::string &value, int pageNum, std::string *returnedKey, int *returnedPageNum);
 		int insertAndShift(const std::string key, const std::string value, char *data, int insertOffset);
+		int insertSplit(const std::string key, const std::string value, int pageNum, int insertOffset, std::string *returnedKey, int *returnedPage);
+		int findPage(const std::string key, const std::string &value, int pageNum, int *page);
 };
